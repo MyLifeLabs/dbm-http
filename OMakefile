@@ -1,0 +1,18 @@
+USE_OCAMLFIND = true
+BYTE_ENABLED = true
+OCAMLDEP_MODULES_ENABLED = false
+
+OCAMLPACKS = dbm yojson
+OCAMLFLAGS = -annot -g
+
+FILES = dbm_base dbm_main
+
+MLI = $(addsuffix .mli, $(FILES))
+
+OCamlProgram(dbm, $(FILES))
+
+.DEFAULT: dbm
+
+.PHONY: clean
+clean:
+        rm -f *.o *.a *.cm* *~ *.annot *.run *.opt test_nproc META doc/*

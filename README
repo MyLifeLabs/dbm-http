@@ -1,0 +1,2 @@
+dbm is a standalone executable that offers a command-line
+interface to GDBM databases and an HTTP frontend.

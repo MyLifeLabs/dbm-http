@@ -3,7 +3,25 @@ open Printf
 open Yojson.Basic.Util
 
 type db_mode = [ `Create | `Update ]
-type data_format = [ `Json | `Hex ]
+type data_format = [ `Json | `Hex | `Raw ]
+
+let with_db mode dbname f =
+  let flags =
+    match mode with
+        `Read -> [Dbm.Dbm_rdonly]
+      | `Write -> [Dbm.Dbm_wronly]
+  in
+  let db = Dbm.opendbm dbname flags 0o666 in
+  try
+    let result = f db in
+    Dbm.close db;
+    result
+  with e ->
+    Dbm.close db;
+    raise e
+
+let with_db_read = with_db `Read
+let with_db_write = with_db `Write
 
 let hexdigit n =
   if n < 10 then Char.chr (48 + n)
@@ -68,8 +86,11 @@ let load dbname db_mode data_format ic =
   in
   let decode_value =
     match data_format with
-        `Json -> (fun s -> Yojson.Basic.to_string s)
-      | `Hex -> (fun json -> hex_decode (to_string json))
+        `Json -> (fun json -> Yojson.Basic.to_string json)
+      | `Hex -> (function `String s -> hex_decode s
+                   | _ -> failwith "Value is not a hex-encoded string")
+      | `Raw -> (function `String s -> s
+                   | _ -> failwith "Value is not a string")
   in
   let db = Dbm.opendbm dbname flags 0o666 in
   let finally () = try Dbm.close db with _ -> () in
@@ -81,3 +102,15 @@ let load dbname db_mode data_format ic =
     finally ();
     raise e
 
+let get dbname key =
+  with_db_read dbname (
+    fun db ->
+      try Some (Dbm.find db key)
+      with Not_found -> None
+  )
+
+let set dbname key value =
+  with_db_write dbname (
+    fun db ->
+      Dbm.replace db key value
+  )

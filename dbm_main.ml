@@ -84,7 +84,78 @@ let enter_load_mode () =
 let enter_dump_mode () = failwith "not implemented 1"
 let enter_get_mode () = failwith "not implemented 2"
 let enter_set_mode () = failwith "not implemented 3"
-let enter_http_mode () = failwith "not implemented 4"
+
+let enter_http_mode () =
+  let content_type = ref "text/plain" in
+  let data_format = ref (`Raw : Dbm_base.data_format) in
+  let logfile = ref "dbm-http.log" in
+  let port = ref 80 in
+  let rw = ref false in
+  let options = [
+    "-content-type",
+    Arg.Set_string content_type,
+    "<TYPE/SUBTYPE>
+          Specifies the value of the HTTP response's Content-type field
+          for successful lookup operations.
+          Default: text/plain";
+
+    "-json",
+    Arg.Unit (fun () -> data_format := `Json),
+    "
+          Indicates that the values of the database are JSON-compliant,
+          allowing them to be pretty-printed.";
+
+    "-raw",
+    Arg.Unit (fun () -> data_format := `Raw),
+    "
+          [default] Indicates that the values of the database must be
+          returned as-is.";
+
+    "-port",
+    Arg.Set_int port,
+    "<PORT NUMBER>
+          Specifies the port on which the HTTP server listens.
+          Default: 80";
+
+    "-log",
+    Arg.Set_string logfile,
+    "<FILENAME>
+          Specifies the log file.
+          Default: dbm-http.log";
+
+    "-rw",
+    Arg.Set rw,
+    "
+          Enables write access via /set.";
+  ]
+  in
+  let usage_msg = "\
+    Usage: dbm http <database file name> [options]
+"
+  in
+  let on_error () =
+    Arg.usage options usage_msg;
+    exit 1
+  in
+  (try
+     Arg.parse_argv Sys.argv options anon_fun usage_msg
+   with e ->
+     on_error ()
+  );
+  match get_anon_args () with
+      [ db ] ->
+        let p = {
+          Dbm_http.db_name = db;
+          rw = !rw;
+          content_type = !content_type;
+          port = !port;
+          logfile = !logfile;
+          format = !data_format;
+        }
+        in
+        Dbm_http.start p
+    | _ -> on_error ()
+
 
 let general_usage oc =
   fprintf oc "\
@@ -101,6 +172,7 @@ documents the \"load\" mode.
 "
 
 let main () =
+  Printexc.record_backtrace true;
   if Array.length Sys.argv < 2 then (
     general_usage stderr;
     exit 1

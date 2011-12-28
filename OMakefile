@@ -2,10 +2,10 @@ USE_OCAMLFIND = true
 BYTE_ENABLED = true
 OCAMLDEP_MODULES_ENABLED = false
 
-OCAMLPACKS = dbm yojson
+OCAMLPACKS = dbm yojson cohttp cohttpserver
 OCAMLFLAGS = -annot -g
 
-FILES = dbm_base dbm_main
+FILES = dbm_log dbm_base dbm_http dbm_main
 
 MLI = $(addsuffix .mli, $(FILES))
 

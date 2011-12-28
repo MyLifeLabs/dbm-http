@@ -7,12 +7,32 @@ OCAMLFLAGS = -annot -g
 
 FILES = dbm_log dbm_base dbm_http dbm_main
 
-MLI = $(addsuffix .mli, $(FILES))
+SCRIPTS = dbm-load dbm-dump dbm-get dbm-set dbm-http
 
 OCamlProgram(dbm, $(FILES))
 
-.DEFAULT: dbm
+$(SCRIPTS): make-specialized-commands
+	./make-specialized-commands
+
+.DEFAULT: dbm $(SCRIPTS)
+
+if $(not $(defined PREFIX))
+  PREFIX = $(HOME)
+  export
+
+if $(not $(defined BINDIR))
+  BINDIR = $(PREFIX)/bin
+  export
+
+.PHONY: install
+install:
+	./install-files $(BINDIR) dbm $(SCRIPTS)
+
+.PHONY: uninstall
+uninstall:
+	./uninstall-files $(BINDIR) dbm $(SCRIPTS)
+
 
 .PHONY: clean
 clean:
-        rm -f *.o *.a *.cm* *~ *.annot *.run *.opt test_nproc META doc/*
+        rm -f *.o *.a *.cm* *~ *.annot *.run *.opt META doc/* dbm dbm-*

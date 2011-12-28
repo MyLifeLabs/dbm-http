@@ -1,0 +1,17 @@
+#! /bin/sh
+
+set -e
+
+dst=$1
+shift
+files=$*
+
+for x in $files; do
+    if [ -f $dst/$x ]; then
+        echo "Error: run 'omake uninstall' first."
+        exit 1
+    else
+	echo "Installing $x into $dst"
+	cp $x $dst
+    fi
+done

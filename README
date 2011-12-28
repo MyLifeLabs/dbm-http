@@ -1,2 +1,29 @@
+                              dbm-http
+
+          Straightforward key-value API for data inspection purposes
+
 dbm is a standalone executable that offers a command-line
 interface to GDBM databases and an HTTP frontend.
+
+Example:
+
+$ head example.json
+{"key": "bob", "value": { "id": 1, "name": "Robert Smith", "age": 35 }}
+{"key": "rosie601", "value": { "id": 20, "name": "Rose Wang", "age": 63 }}
+{
+  "key": "jimster",
+  "value":
+    { "id": 257, "name": "James Brown", "age": 20, "friends": [ 1, 20 ] }
+}
+
+$ dbm load example.db < example.json
+
+$ dbm get example.db jimster
+{ "id": 257, "name": "James Brown", "age": 20, "friends": [ 1, 20 ] }
+
+$ dbm http example.db -port 8080
+log: dbm-http.log
+pid: 5159
+
+$ wget -O - -q http://localhost:8080/get/jimster
+{ "id": 257, "name": "James Brown", "age": 20, "friends": [ 1, 20 ] }

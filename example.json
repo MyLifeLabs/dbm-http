@@ -1,3 +1,7 @@
-{"key": "a",
-  "value": "av"}
-{"key": "b", "value": "bv"}
+{"key": "bob", "value": { "id": 1, "name": "Robert Smith", "age": 35 }}
+{"key": "rosie601", "value": { "id": 20, "name": "Rose Wang", "age": 63 }}
+{
+  "key": "jimster",
+  "value":
+    { "id": 257, "name": "James Brown", "age": 20, "friends": [ 1, 20 ] }
+}

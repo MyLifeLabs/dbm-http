@@ -114,3 +114,24 @@ let set dbname key value =
     fun db ->
       Dbm.replace db key value
   )
+
+let get_formatted format dbname key =
+  match get dbname key with
+      None -> None
+    | Some value ->
+        let formatted_value =
+          match format with
+              `Json -> Yojson.Basic.prettify value ^ "\n"
+            | `Raw -> value
+            | `Hex -> hex_encode value ^ "\n"
+        in
+        Some formatted_value
+
+let set_formatted format dbname key formatted_value =
+  let value =
+    match format with
+        `Json -> Yojson.Basic.compact formatted_value
+      | `Raw -> formatted_value
+      | `Hex -> hex_decode formatted_value
+  in
+  set dbname key value

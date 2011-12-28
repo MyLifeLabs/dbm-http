@@ -32,30 +32,19 @@ let page_not_found () =
   Lwt.return (Cohttp.Http_response.init ~body ~headers ~status:`Not_found ())
 
 let handle_get_query p key =
-  match Dbm_base.get p.db_name key with
+  match Dbm_base.get_formatted p.format p.db_name key with
       Some value ->
-        let body =
-          match p.format with
-              `Json -> Yojson.Basic.prettify value
-            | `Raw -> value
-            | `Hex -> Dbm_base.hex_encode value
-        in
-        success_page ~content_type: p.content_type body
+        success_page ~content_type: p.content_type value
     | None ->
         page_not_found ()
 
-let handle_set_query p key value0 =
+let handle_set_query p key value =
   if not p.rw then
     page_not_found ()
-  else
-    let value =
-      match p.format with
-          `Json -> Yojson.Basic.compact value0
-        | `Raw -> value0
-        | `Hex -> Dbm_base.hex_decode value0
-    in
-    Dbm_base.set p.db_name key value;
+  else (
+    Dbm_base.set_formatted p.format p.db_name key value;
     success_page ~content_type: p.content_type "ok"
+  )
 
 
 let dispatch p req path_elem =

@@ -1,6 +1,6 @@
 Requirements:
 
-- a standard installation of OCaml
+- a standard installation of OCaml [godi]
 - an implementation of a DBM library such as GDBM
 - ocaml-dbm [godi] - may be already included in the main OCaml package
 - ocamlfind [godi]
@@ -8,7 +8,7 @@ Requirements:
 - lwt [godi]
 - cohttp [https://github.com/avsm/ocaml-cohttp]
 - cohttpserver [https://github.com/avsm/ocaml-cohttpserver]
-- yojson and dependencies [godi]
+- yojson (>= 1.0.3) [godi]
 
 
 Compilation:

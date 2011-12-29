@@ -27,3 +27,9 @@ pid: 5159
 
 $ wget -O - -q http://localhost:8080/get/jimster
 { "id": 257, "name": "James Brown", "age": 20, "friends": [ 1, 20 ] }
+
+$ dbm dump example.db
+{"key":"bob","value":{"id":1,"name":"Robert Smith","age":35}}
+{"key":"rosie601","value":{"id":20,"name":"Rose Wang","age":63}}
+{"key":"john","value":"doe"}
+{"key":"jimster","value":{"id":257,"name":"James Brown","age":20,"friends":[1,20]}}

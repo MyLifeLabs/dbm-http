@@ -7,7 +7,7 @@ OCAMLFLAGS = -annot -g
 
 FILES = dbm_log dbm_base dbm_http dbm_main
 
-SCRIPTS = dbm-load dbm-dump dbm-get dbm-set dbm-http
+SCRIPTS = dbm-load dbm-dump dbm-get dbm-set dbm-del dbm-http
 
 OCamlProgram(dbm, $(FILES))
 

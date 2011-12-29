@@ -1,0 +1,26 @@
+Requirements:
+
+- a standard installation of OCaml
+- an implementation of a DBM library such as GDBM
+- ocaml-dbm [godi] - may be already included in the main OCaml package
+- ocamlfind [godi]
+- omake [godi]
+- lwt [godi]
+- cohttp [https://github.com/avsm/ocaml-cohttp]
+- cohttpserver [https://github.com/avsm/ocaml-cohttpserver]
+- yojson and dependencies [godi]
+
+
+Compilation:
+
+  $ omake
+
+Installation:
+
+  $ omake install
+or
+  $ omake BINDIR=/foo/bin install
+
+Uninstallation:
+
+  $ omake uninstall

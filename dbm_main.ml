@@ -226,6 +226,26 @@ let enter_set_mode () =
     | _ -> on_error ()
 
 
+let enter_del_mode () =
+  let options = [] in
+  let usage_msg = "\
+    Usage: dbm del <database file name> <key>
+"
+  in
+  let on_error () =
+    Arg.usage options usage_msg;
+    exit 1
+  in
+  (try
+     Arg.parse_argv Sys.argv options anon_fun usage_msg
+   with e ->
+     on_error ()
+  );
+  match get_anon_args () with
+      [ db; key ] -> Dbm_base.del db key
+    | _ -> on_error ()
+
+
 let enter_http_mode () =
   let content_type = ref "text/plain" in
   let data_format = ref (`Json : Dbm_base.data_format) in
@@ -311,6 +331,7 @@ Usage:
   dbm dump DBFILE [OPTIONS]     # extract key/value JSON records from database
   dbm get DBFILE KEY [OPTIONS]           # get specific record from database
   dbm set DBFILE KEY [VALUE] [OPTIONS]   # set/replace value
+  dbm del DBFILE KEY                     # delete a record
   dbm http DBFILE [OPTIONS]              # start HTTP frontend
   dbm help [OPTIONS]            # display this help message
 
@@ -332,6 +353,7 @@ let main () =
       | "dump" -> enter_dump_mode ()
       | "get" -> enter_get_mode ()
       | "set" -> enter_set_mode ()
+      | "del" -> enter_del_mode ()
       | "http" -> enter_http_mode ()
       | "help" | "-help" | "--help" ->
           general_usage stdout;

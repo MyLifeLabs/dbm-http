@@ -31,6 +31,12 @@ let page_not_found () =
   let body = [ `String "Not found" ] in
   Lwt.return (Cohttp.Http_response.init ~body ~headers ~status:`Not_found ())
 
+let bad_request () =
+  let headers = [ "Content-type", "text/plain" ] in
+  let body = [ `String "Bad request" ] in
+  Lwt.return (Cohttp.Http_response.init ~body ~headers ~status:`Bad_request ())
+
+
 let handle_get_query p key =
   match Dbm_base.get_formatted p.format p.db_name key with
       Some value ->
@@ -42,7 +48,18 @@ let handle_set_query p key value =
   if not p.rw then
     page_not_found ()
   else (
-    Dbm_base.set_formatted p.format p.db_name key value;
+    try
+      Dbm_base.set_formatted p.format p.db_name key value;
+      success_page ~content_type: p.content_type "ok"
+    with _ ->
+      bad_request ()
+  )
+
+let handle_del_query p key =
+  if not p.rw then
+    page_not_found ()
+  else (
+    Dbm_base.del p.db_name key;
     success_page ~content_type: p.content_type "ok"
   )
 
@@ -52,6 +69,7 @@ let dispatch p req path_elem =
     match path_elem with
         [ ""; "get"; key ] -> handle_get_query p key
       | [ ""; "set"; key; value ] -> handle_set_query p key value
+      | [ ""; "del"; key ] -> handle_del_query p key
       | _ -> page_not_found ()
   with e ->
     internal_error_page req e

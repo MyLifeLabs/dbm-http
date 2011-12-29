@@ -179,6 +179,13 @@ let set dbname key value =
       Dbm.replace db key value
   )
 
+let del dbname key =
+  with_db_write dbname (
+    fun db ->
+      (try Dbm.remove db key
+       with Dbm.Dbm_error "dbm_delete" -> ())
+  )
+
 let get_formatted format dbname key =
   match get dbname key with
       None -> None

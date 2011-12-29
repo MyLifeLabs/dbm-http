@@ -90,7 +90,54 @@ let enter_load_mode () =
     | _ -> on_error ()
 
 
-let enter_dump_mode () = failwith "not implemented 1"
+let enter_dump_mode () =
+  let data_format = ref (`Json : Dbm_base.data_format) in
+  let options = [
+    "-json",
+    Arg.Unit (fun () -> data_format := `Json),
+    "
+          [default] Records are returned as newline-separated
+          UTF-8 JSON records of the form { \"key\": KEY, \"value\": VALUE }
+          where KEY is a JSON string and VALUE can be any valid JSON value.
+          KEY and VALUE represent the key and value to be stored
+          in the database.";
+
+    "-hex",
+    Arg.Unit (fun () -> data_format := `Hex),
+    "
+          Records are returned as newline-separated
+          UTF-8 JSON records of the form { \"key\": KEY, \"value\": VALUE }
+          where KEY is a JSON string representing the key to be stored
+          into the database and VALUE is a JSON string containing
+          the hexadecimal representation of the value.";
+
+    "-raw",
+    Arg.Unit (fun () -> data_format := `Raw),
+    "
+          Records are returned as newline-separated
+          UTF-8 JSON records of the form { \"key\": KEY, \"value\": VALUE }
+          where KEY is a JSON string representing the key to be stored
+          into the database and VALUE is a JSON string representing
+          the value.";
+  ]
+  in
+  let usage_msg = "\
+    Usage: dbm dump <database file name> [options]
+"
+  in
+  let on_error () =
+    Arg.usage options usage_msg;
+    exit 1
+  in
+  (try
+     Arg.parse_argv Sys.argv options anon_fun usage_msg
+   with e ->
+     on_error ()
+  );
+  match get_anon_args () with
+      [ db ] -> Dbm_base.dump db !data_format stdout
+    | _ -> on_error ()
+
 
 let enter_get_mode () =
   let data_format = ref (`Json : Dbm_base.data_format) in

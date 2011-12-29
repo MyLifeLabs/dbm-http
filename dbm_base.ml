@@ -102,6 +102,70 @@ let load dbname db_mode data_format ic =
     finally ();
     raise e
 
+let stream_from_db dbname =
+  let db = Dbm.opendbm dbname [Dbm.Dbm_rdonly] 0 in
+  let keygen = ref (fun db -> assert false) in
+  keygen := (fun db -> keygen := Dbm.nextkey; Dbm.firstkey db);
+  let rec next i =
+    let k =
+      try Some (!keygen db)
+      with Not_found ->
+        Dbm.close db;
+        None
+    in
+    match k with
+        None -> None
+      | Some key ->
+          try Some (key, Dbm.find db key)
+          with Not_found -> next i
+  in
+  Stream.from next
+
+let dump dbname data_format oc =
+  let encode_key_value =
+    match data_format with
+        `Json -> (
+          fun k v -> 
+            Yojson.Basic.to_string
+              (`Assoc [ "key", `String k;
+                        "value", Yojson.Basic.from_string v ])
+          )
+      | `Hex -> (
+          fun k v ->
+            Yojson.Basic.to_string
+              (`Assoc [ "key", `String k;
+                        "value", `String (hex_encode v) ])
+          )
+      | `Raw -> (
+          fun k v ->
+            Yojson.Basic.to_string
+              (`Assoc [ "key", `String k;
+                        "value", `String v ])
+        )
+        in
+  let db = Dbm.opendbm dbname [Dbm.Dbm_rdonly] 0o666 in
+  let finally () = try Dbm.close db with _ -> () in
+  let keygen = ref (fun db -> assert false) in
+  keygen := (fun db -> keygen := Dbm.nextkey; Dbm.firstkey db);
+  try
+    while true do
+      let k =
+        try !keygen db
+        with Not_found -> raise Exit
+      in
+      let v = Dbm.find db k in
+      print_string (encode_key_value k v);
+      print_char '\n';
+    done;
+    assert false
+  with
+      Exit ->
+        finally ()
+    | e ->
+        finally ();
+        raise e
+
+
 let get dbname key =
   with_db_read dbname (
     fun db ->

@@ -23,61 +23,26 @@ let with_db mode dbname f =
 let with_db_read = with_db `Read
 let with_db_write = with_db `Write
 
-let hexdigit n =
-  if n < 10 then Char.chr (48 + n)
-  else Char.chr (87 + n)
+let encode_position pos = Dbm_util.encode_int64 pos
+let decode_position s = Dbm_util.decode_int64 s 0
 
-let unhexdigit c =
-  match c with
-      '0'..'9' -> Char.code c - 48
-    | 'a'..'f' -> Char.code c - 87
-    | 'A'..'F' -> Char.code c - 55
-    | _ -> failwith "Invalid hex sequence"
-
-let hex_encode s =
-  let len = String.length s in
-  let sx = String.create (2 * len) in
-  for i = 0 to len - 1 do
-    let c = Char.code s.[i] in
-    let j = 2 * i in
-    sx.[j] <- hexdigit (c lsr 4);
-    sx.[j+1] <- hexdigit (c land 0b1111);
-  done;
-  sx
-
-let hex_decode sx =
-  let lenx = String.length sx in
-  if lenx mod 2 <> 0 then
-    failwith "Invalid hex sequence";
-  let len = lenx / 2 in
-  let s = String.create len in
-  for i = 0 to len - 1 do
-    let j = 2 * i in
-    s.[i] <- Char.chr ((unhexdigit sx.[j] lsl 4) lor (unhexdigit sx.[j+1]))
-  done;
-  s
-
-let test_hex () =
-  let s = String.create 256 in
-  for i = 0 to 255 do s.[i] <- Char.chr i done;
-  let sx = hex_encode s in
-  let s' = hex_decode sx in
-  assert (s = s');
-  assert (hex_decode (String.uppercase sx) = s)
-
-let add_record db decode_value json =
+let add_record db oc decode_value json =
   let key = json |> member "key" |> to_string in
   let value = json |> member "value" |> decode_value in
-  Dbm.replace db key value
+  let pos = Dbm_data.write_value oc value in
+  Dbm.replace db key (encode_position pos)
 
 let load dbname db_mode data_format ic =
+  let data_fname = Dbm_data.data_filename dbname in
   let flags =
     match db_mode with
         `Create ->
           if List.exists Sys.file_exists [ dbname;
-                                           dbname ^ ".pag";
-                                           dbname ^ ".dir" ] then
-            failwith (sprintf "File %s[.dir|.pag] already exists" dbname)
+                                           data_fname;
+                                           dbname ^ ".dir";
+                                           dbname ^ ".pag"; ]
+          then
+            failwith (sprintf "File %s[.data|.dir|.pag] already exists" dbname)
           else
             [Dbm.Dbm_wronly; Dbm.Dbm_create]
 
@@ -87,39 +52,24 @@ let load dbname db_mode data_format ic =
   let decode_value =
     match data_format with
         `Json -> (fun json -> Yojson.Basic.to_string json)
-      | `Hex -> (function `String s -> hex_decode s
+      | `Hex -> (function `String s -> Dbm_util.hex_decode s
                    | _ -> failwith "Value is not a hex-encoded string")
       | `Raw -> (function `String s -> s
                    | _ -> failwith "Value is not a string")
   in
   let db = Dbm.opendbm dbname flags 0o666 in
-  let finally () = try Dbm.close db with _ -> () in
+  let oc = Dbm_data.open_for_writing data_fname in
+  let finally () =
+    (try Dbm.close db with _ -> ());
+    close_out_noerr oc
+  in
   try
     let strm = Yojson.Basic.stream_from_channel ic in
-    Stream.iter (add_record db decode_value) strm;
+    Stream.iter (add_record db oc decode_value) strm;
     finally ()
   with e ->
     finally ();
     raise e
-
-let stream_from_db dbname =
-  let db = Dbm.opendbm dbname [Dbm.Dbm_rdonly] 0 in
-  let keygen = ref (fun db -> assert false) in
-  keygen := (fun db -> keygen := Dbm.nextkey; Dbm.firstkey db);
-  let rec next i =
-    let k =
-      try Some (!keygen db)
-      with Not_found ->
-        Dbm.close db;
-        None
-    in
-    match k with
-        None -> None
-      | Some key ->
-          try Some (key, Dbm.find db key)
-          with Not_found -> next i
-  in
-  Stream.from next
 
 let dump dbname data_format oc =
   let encode_key_value =
@@ -134,7 +84,7 @@ let dump dbname data_format oc =
           fun k v ->
             Yojson.Basic.to_string
               (`Assoc [ "key", `String k;
-                        "value", `String (hex_encode v) ])
+                        "value", `String (Dbm_util.hex_encode v) ])
           )
       | `Raw -> (
           fun k v ->
@@ -142,8 +92,9 @@ let dump dbname data_format oc =
               (`Assoc [ "key", `String k;
                         "value", `String v ])
         )
-        in
+  in
   let db = Dbm.opendbm dbname [Dbm.Dbm_rdonly] 0o666 in
+  let ic = Dbm_data.open_for_reading (Dbm_data.data_filename dbname) in
   let finally () = try Dbm.close db with _ -> () in
   let keygen = ref (fun db -> assert false) in
   keygen := (fun db -> keygen := Dbm.nextkey; Dbm.firstkey db);
@@ -153,9 +104,11 @@ let dump dbname data_format oc =
         try !keygen db
         with Not_found -> raise Exit
       in
-      let v = Dbm.find db k in
-      print_string (encode_key_value k v);
-      print_char '\n';
+      let pos = decode_position (Dbm.find db k) in
+      seek_in ic pos;
+      let v = Dbm_data.read_value ic in
+      output_string oc (encode_key_value k v);
+      output_char oc '\n';
     done;
     assert false
   with
@@ -169,14 +122,24 @@ let dump dbname data_format oc =
 let get dbname key =
   with_db_read dbname (
     fun db ->
-      try Some (Dbm.find db key)
+      try
+        let pos = decode_position (Dbm.find db key) in
+        let value =
+          Dbm_data.with_data_in dbname ~pos
+            (fun ic -> Dbm_data.read_value ic)
+        in
+        Some value
       with Not_found -> None
   )
 
 let set dbname key value =
   with_db_write dbname (
     fun db ->
-      Dbm.replace db key value
+      let pos =
+        Dbm_data.with_data_out dbname
+          (fun oc -> Dbm_data.write_value oc value)
+      in
+      Dbm.replace db key (encode_position pos)
   )
 
 let del dbname key =
@@ -194,7 +157,7 @@ let get_formatted format dbname key =
           match format with
               `Json -> Yojson.Basic.prettify value ^ "\n"
             | `Raw -> value
-            | `Hex -> hex_encode value ^ "\n"
+            | `Hex -> Dbm_util.hex_encode value ^ "\n"
         in
         Some formatted_value
 
@@ -203,6 +166,6 @@ let set_formatted format dbname key formatted_value =
     match format with
         `Json -> Yojson.Basic.compact formatted_value
       | `Raw -> formatted_value
-      | `Hex -> hex_decode formatted_value
+      | `Hex -> Dbm_util.hex_decode formatted_value
   in
   set dbname key value

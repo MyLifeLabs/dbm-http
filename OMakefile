@@ -5,7 +5,7 @@ OCAMLDEP_MODULES_ENABLED = false
 OCAMLPACKS = dbm yojson cohttp cohttpserver
 OCAMLFLAGS = -annot -g
 
-FILES = dbm_log dbm_base dbm_http dbm_main
+FILES = dbm_util dbm_log dbm_data dbm_base dbm_http dbm_main
 
 SCRIPTS = dbm-load dbm-dump dbm-get dbm-set dbm-del dbm-http
 
